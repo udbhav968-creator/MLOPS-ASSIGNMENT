@@ -1,0 +1,10 @@
+# Keep data and binary files byte-for-byte identical on every OS.
+# (Windows git can otherwise turn LF into CRLF and change the file hashes.)
+*.csv     -text
+*.db      binary
+*.joblib  binary
+# Source files: always LF in the repository
+*.py      text eol=lf
+*.yaml    text eol=lf
+*.yml     text eol=lf
+*.md      text eol=lf

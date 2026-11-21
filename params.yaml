@@ -1,0 +1,38 @@
+# G134 / MP290 settings. Read by src/mp290/config.py with yaml.safe_load.
+data:
+  train: data/raw/train.csv
+  later: data/raw/later.csv
+  holdout: data/raw/holdout_features.csv
+
+mlflow:
+  tracking_uri: sqlite:///mlflow.db
+  experiment_name: G134_MP290_metro_crowd
+  registered_model_name: mp290-entries-per-hour
+
+features:
+  numeric: [hour, nearby_offices, temp_c, rain_mm, feeder_buses, ticket_price_rs]
+  categorical: [day_type, line]
+  target: entries_per_hour
+  group_column: line
+
+train:                     # v1: several settings, best by validation MAE
+  test_size: 0.2
+  random_state: 42
+  candidates:
+    - {name: ridge,         model: ridge, alpha: 1.0, poly_degree: 1}
+    - {name: ridge_poly2,   model: ridge, alpha: 1.0, poly_degree: 2}
+    - {name: gradient_boost, model: gbr,  n_estimators: 200, max_depth: 3}
+    - {name: random_forest, model: rf,    n_estimators: 300, max_depth: null}
+
+retrain:                   # v2 and the client's promotion rule
+  first_fraction: 0.7
+  promotion_min_improvement: 0.08
+  recent_weights: [1, 3, 5, 10, 20, 50, 100]   # chosen on an inner split of the first 70% only
+
+monitoring:
+  psi_bins: 10
+
+outputs:
+  model_path: models/model.joblib
+  findings: reports/findings.yaml
+  predictions: predictions/holdout_predictions.csv

@@ -1,0 +1,11 @@
+# train.csv and later.csv are ignored by data/raw/.gitignore (written by dvc add)
+# MLflow model files (the tool reads only mlflow.db, which IS committed)
+mlruns/
+mlartifacts/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+*.egg-info/
