@@ -1,0 +1,55 @@
+# MP290 findings --- written by `python -m mp290.pipeline` (src/mp290/pipeline.py).
+# Every value comes from our code run on our own data files.
+group_id: G134
+problem_id: MP290
+data_issues:
+  leaking_column:
+    present: true
+    column: gate_count_end_of_hour
+  unit_mixup:
+    present: true
+    column: rain_mm
+    group_value: Yellow Line
+    factor: 0.1
+  sentinel_value:
+    present: false
+    column: null
+    value: null
+    count: null
+  duplicate_rows:
+    present: true
+    count: 40
+  stuck_sensor:
+    present: false
+    column: null
+    start_date: null
+    end_date: null
+  target_typos:
+    present: true
+    count: 13
+  spelling_variants:
+    present: false
+    column: null
+    true_levels: null
+tracking:
+  experiment_name: G134_MP290_metro_crowd
+  best_run_id: 10faeb91410248ecb42c015fbf4db88d
+  registered_model_name: mp290-entries-per-hour
+  champion_version: 2
+monitoring:
+  psi:
+    hour: 0.0227
+    nearby_offices: 4.3858
+    temp_c: 0.0267
+    rain_mm: 0.0265
+    feeder_buses: 0.0423
+    ticket_price_rs: 0.0535
+  most_drifted_feature: nearby_offices
+  mae_by_group:
+    Blue Line: 128.82
+    Red Line: 146.16
+    Yellow Line: 1360.12
+  worst_served_group: Yellow Line
+  mae_v1_on_check: 512.36
+  mae_v2_on_check: 204.01
+  decision: promote
