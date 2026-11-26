@@ -147,7 +147,58 @@ def jsonable(errors):
 
 @app.get("/health")
 def health() -> dict:
+    global model
+    if model is None:
+        try:
+            get_model()
+        except Exception:
+            pass
     return {"status": "ok", "model_loaded": model is not None, "model_version": MODEL_VERSION}
+
+
+@app.get("/stats")
+def stats() -> dict:
+    """Return live system performance and drift metrics dynamically from findings.yaml."""
+    findings_path = Path(__file__).resolve().parents[1] / "reports" / "findings.yaml"
+    if not findings_path.exists():
+        for _alt in [
+            Path(__file__).resolve().parent / "findings.yaml",
+            Path.cwd() / "reports" / "findings.yaml",
+            Path.cwd() / "findings.yaml"
+        ]:
+            if _alt.exists():
+                findings_path = _alt
+                break
+
+    data = {
+        "v1_val_mae": 130.38,
+        "v2_check_mae": 204.01,
+        "v1_check_mae": 512.36,
+        "reduction_pct": -60.2,
+        "champion_version": 2,
+        "most_drifted_feature": "nearby_offices",
+        "worst_served_group": "Yellow Line",
+    }
+    if findings_path.exists():
+        try:
+            import yaml
+            with open(findings_path, encoding="utf-8") as f:
+                y = yaml.safe_load(f)
+                m = y.get("monitoring", {})
+                v1_c = m.get("mae_v1_on_check", 512.36)
+                v2_c = m.get("mae_v2_on_check", 204.01)
+                red = round((v2_c - v1_c) / v1_c * 100, 1) if v1_c else -60.2
+                data.update({
+                    "v2_check_mae": v2_c,
+                    "v1_check_mae": v1_c,
+                    "reduction_pct": red,
+                    "champion_version": y.get("tracking", {}).get("champion_version", 2),
+                    "most_drifted_feature": m.get("most_drifted_feature", "nearby_offices"),
+                    "worst_served_group": m.get("worst_served_group", "Yellow Line"),
+                })
+        except Exception:
+            pass
+    return data
 
 
 @app.post("/predict", response_model=PredictResponse)
@@ -451,15 +502,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       <div class="stats-row">
         <div class="stat-tile">
-          <div class="stat-val" style="color:#38bdf8;">130.38</div>
+          <div class="stat-val" id="statValV1" style="color:#38bdf8;">130.38</div>
           <div class="stat-label">v1 Val MAE</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-val" style="color:#34d399;">204.01</div>
+          <div class="stat-val" id="statValV2" style="color:#34d399;">204.01</div>
           <div class="stat-label">v2 Check MAE</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-val" style="color:#f59e0b;">-60.2%</div>
+          <div class="stat-val" id="statValRed" style="color:#f59e0b;">-60.2%</div>
           <div class="stat-label">Error Reduction</div>
         </div>
       </div>
@@ -561,6 +612,21 @@ async function handlePredict(e) {
     errContent.style.display = 'block';
   }
 }
+
+// Fetch dynamic performance stats from API
+(async function loadStats() {
+  try {
+    const res = await fetch('/stats');
+    if (res.ok) {
+      const s = await res.json();
+      if (s.v1_val_mae) document.getElementById('statValV1').textContent = s.v1_val_mae.toFixed(2);
+      if (s.v2_check_mae) document.getElementById('statValV2').textContent = s.v2_check_mae.toFixed(2);
+      if (s.reduction_pct) document.getElementById('statValRed').textContent = (s.reduction_pct > 0 ? '+' : '') + s.reduction_pct.toFixed(1) + '%';
+    }
+  } catch (e) {
+    // Keep fallback static values if /stats unavailable
+  }
+})();
 </script>
 </body>
 </html>

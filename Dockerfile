@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY params.yaml .
 COPY src/ src/
 COPY app/ app/
+COPY reports/ reports/
 COPY models/model.joblib models/model.joblib
 
 EXPOSE 8000

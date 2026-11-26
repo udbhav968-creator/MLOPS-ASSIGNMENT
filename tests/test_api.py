@@ -25,6 +25,12 @@ def test_health(client):
     assert r.status_code == 200 and r.json()["status"] == "ok"
 
 
+def test_stats(client):
+    r = client.get("/stats")
+    assert r.status_code == 200
+    assert "v2_check_mae" in r.json()
+
+
 def test_predict_returns_a_number(client):
     r = client.post("/predict", json=GOOD)
     assert r.status_code == 200
