@@ -33,7 +33,7 @@ data_issues:
     true_levels: null
 tracking:
   experiment_name: G134_MP290_metro_crowd
-  best_run_id: 10faeb91410248ecb42c015fbf4db88d
+  best_run_id: 2c87bf29881245adb59da0ca1047bff6
   registered_model_name: mp290-entries-per-hour
   champion_version: 2
 monitoring:
