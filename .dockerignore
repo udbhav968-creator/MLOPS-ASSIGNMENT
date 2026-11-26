@@ -1,0 +1,17 @@
+.git
+.github
+.dvc
+data
+mlruns
+mlartifacts
+mlflow.db
+predictions
+reports
+tests
+.pytest_cache
+**/__pycache__
+*.pyc
+.venv
+venv
+k8s
+*.md
