@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mp290-api
+  labels:
+    app: mp290-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mp290-api
+  template:
+    metadata:
+      labels:
+        app: mp290-api
+    spec:
+      containers:
+        - name: mp290-api
+          image: mp290-api:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 20     # waits longer than readiness
+            periodSeconds: 15
