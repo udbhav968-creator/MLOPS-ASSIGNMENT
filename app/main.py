@@ -27,6 +27,16 @@ from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 MODEL_PATH = Path(os.getenv("MODEL_PATH", Path(__file__).resolve().parents[1] / "models" / "model.joblib"))
+if not MODEL_PATH.exists():
+    for _alt in [
+        Path(__file__).resolve().parents[1] / "api" / "model.joblib",
+        Path(__file__).resolve().parent / "model.joblib",
+        Path.cwd() / "models" / "model.joblib",
+        Path.cwd() / "api" / "model.joblib"
+    ]:
+        if _alt.exists():
+            MODEL_PATH = _alt
+            break
 MODEL_VERSION = os.getenv("MODEL_VERSION", "champion")
 
 
