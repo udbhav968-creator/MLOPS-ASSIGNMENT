@@ -1,0 +1,4 @@
+data/raw/*.csv
+.git
+.pytest_cache
+mlruns
