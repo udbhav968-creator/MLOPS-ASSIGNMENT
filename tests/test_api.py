@@ -28,7 +28,11 @@ def test_health(client):
 def test_stats(client):
     r = client.get("/stats")
     assert r.status_code == 200
-    assert "v2_check_mae" in r.json()
+    body = r.json()
+    assert "v2_check_mae" in body and "champion_version" in body
+    if body["available"]:                      # values come from reports/findings.yaml
+        assert body["reduction_pct"] == round(
+            (body["v2_check_mae"] - body["v1_check_mae"]) / body["v1_check_mae"] * 100, 1)
 
 
 def test_predict_returns_a_number(client):

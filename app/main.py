@@ -146,6 +146,7 @@ def jsonable(errors):
 
 
 @app.get("/health")
+@app.get("/api/health")
 def health() -> dict:
     global model
     if model is None:
@@ -157,6 +158,7 @@ def health() -> dict:
 
 
 @app.get("/stats")
+@app.get("/api/stats")
 def stats() -> dict:
     """Return live system performance and drift metrics dynamically from findings.yaml."""
     findings_path = Path(__file__).resolve().parents[1] / "reports" / "findings.yaml"
@@ -170,38 +172,37 @@ def stats() -> dict:
                 findings_path = _alt
                 break
 
-    data = {
-        "v1_val_mae": 130.38,
-        "v2_check_mae": 204.01,
-        "v1_check_mae": 512.36,
-        "reduction_pct": -60.2,
-        "champion_version": 2,
-        "most_drifted_feature": "nearby_offices",
-        "worst_served_group": "Yellow Line",
-    }
-    if findings_path.exists():
-        try:
-            import yaml
-            with open(findings_path, encoding="utf-8") as f:
-                y = yaml.safe_load(f)
-                m = y.get("monitoring", {})
-                v1_c = m.get("mae_v1_on_check", 512.36)
-                v2_c = m.get("mae_v2_on_check", 204.01)
-                red = round((v2_c - v1_c) / v1_c * 100, 1) if v1_c else -60.2
-                data.update({
-                    "v2_check_mae": v2_c,
-                    "v1_check_mae": v1_c,
-                    "reduction_pct": red,
-                    "champion_version": y.get("tracking", {}).get("champion_version", 2),
-                    "most_drifted_feature": m.get("most_drifted_feature", "nearby_offices"),
-                    "worst_served_group": m.get("worst_served_group", "Yellow Line"),
-                })
-        except Exception:
-            pass
+    # No hard-coded numbers: every value comes from the pipeline's findings.yaml.
+    # If the file is missing or unreadable, values are null and the UI shows "-".
+    data = {"available": False, "v1_check_mae": None, "v2_check_mae": None,
+            "reduction_pct": None, "champion_version": None,
+            "most_drifted_feature": None, "worst_served_group": None}
+    if not findings_path.exists():
+        return data
+    try:
+        import yaml
+        with open(findings_path, encoding="utf-8") as f:
+            y = yaml.safe_load(f) or {}
+    except Exception as err:
+        log_event("stats_read_failed", logging.WARNING, error=str(err))
+        return data
+    m = y.get("monitoring", {}) or {}
+    v1_c, v2_c = m.get("mae_v1_on_check"), m.get("mae_v2_on_check")
+    data.update({
+        "available": True,
+        "v1_check_mae": v1_c,
+        "v2_check_mae": v2_c,
+        # both MAEs are on the same check set (last 30% of later.csv), so this is a fair comparison
+        "reduction_pct": round((v2_c - v1_c) / v1_c * 100, 1) if v1_c and v2_c is not None else None,
+        "champion_version": (y.get("tracking", {}) or {}).get("champion_version"),
+        "most_drifted_feature": m.get("most_drifted_feature"),
+        "worst_served_group": m.get("worst_served_group"),
+    })
     return data
 
 
 @app.post("/predict", response_model=PredictResponse)
+@app.post("/api/predict", response_model=PredictResponse)
 def predict(req: PredictRequest) -> PredictResponse:
     current = get_model()                     # loaded once, outside the timing
     start = time.perf_counter()
@@ -421,7 +422,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <p>SCSE3040 MLOps Mini Project · Group G134 · Problem MP290</p>
     </div>
     <div style="display:flex; gap:12px; align-items:center;">
-      <div class="status-pill"><div class="status-dot"></div>Model: @champion (v2)</div>
+      <div class="status-pill"><div class="status-dot"></div><span id="champLabel">Model: @champion</span></div>
       <a href="/docs" target="_blank" class="docs-btn">Swagger Docs ↗</a>
     </div>
   </header>
@@ -502,16 +503,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
       <div class="stats-row">
         <div class="stat-tile">
-          <div class="stat-val" id="statValV1" style="color:#38bdf8;">130.38</div>
-          <div class="stat-label">v1 Val MAE</div>
+          <div class="stat-val" id="statValV1" style="color:#38bdf8;">-</div>
+          <div class="stat-label">v1 MAE (check set)</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-val" id="statValV2" style="color:#34d399;">204.01</div>
-          <div class="stat-label">v2 Check MAE</div>
+          <div class="stat-val" id="statValV2" style="color:#34d399;">-</div>
+          <div class="stat-label">v2 MAE (check set)</div>
         </div>
         <div class="stat-tile">
-          <div class="stat-val" id="statValRed" style="color:#f59e0b;">-60.2%</div>
-          <div class="stat-label">Error Reduction</div>
+          <div class="stat-val" id="statValRed" style="color:#f59e0b;">-</div>
+          <div class="stat-label">Error Change</div>
         </div>
       </div>
 
@@ -619,12 +620,13 @@ async function handlePredict(e) {
     const res = await fetch('/stats');
     if (res.ok) {
       const s = await res.json();
-      if (s.v1_val_mae) document.getElementById('statValV1').textContent = s.v1_val_mae.toFixed(2);
-      if (s.v2_check_mae) document.getElementById('statValV2').textContent = s.v2_check_mae.toFixed(2);
-      if (s.reduction_pct) document.getElementById('statValRed').textContent = (s.reduction_pct > 0 ? '+' : '') + s.reduction_pct.toFixed(1) + '%';
+      if (s.v1_check_mae != null) document.getElementById('statValV1').textContent = s.v1_check_mae.toFixed(2);
+      if (s.v2_check_mae != null) document.getElementById('statValV2').textContent = s.v2_check_mae.toFixed(2);
+      if (s.reduction_pct != null) document.getElementById('statValRed').textContent = (s.reduction_pct > 0 ? '+' : '') + s.reduction_pct.toFixed(1) + '%';
+      if (s.champion_version != null) document.getElementById('champLabel').textContent = 'Model: @champion (v' + s.champion_version + ')';
     }
   } catch (e) {
-    // Keep fallback static values if /stats unavailable
+    // /stats unavailable: tiles stay at "-" rather than showing invented numbers
   }
 })();
 </script>
